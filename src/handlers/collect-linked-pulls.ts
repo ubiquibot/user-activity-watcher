@@ -1,8 +1,8 @@
-import { parseGitHubUrl } from "../helpers/github-url";
+import { parseIssueUrl } from "../helpers/github-url";
 import { Context } from "../types/context";
 import { GitHubLinkEvent, GitHubTimelineEvent, isGitHubLinkEvent } from "../types/github-types";
 
-export type IssueParams = ReturnType<typeof parseGitHubUrl>;
+export type IssueParams = ReturnType<typeof parseIssueUrl>;
 
 export async function collectLinkedPullRequests(context: Context, issue: IssueParams) {
   const onlyPullRequests = await collectLinkedPulls(context, issue);
@@ -19,6 +19,7 @@ export async function collectLinkedPullRequests(context: Context, issue: IssuePa
     if (!linkedPrUrls) {
       return false;
     }
+
     let isClosingPr = false;
     for (let i = 0; i < linkedPrUrls.length && !isClosingPr; ++i) {
       const idx = linkedPrUrls[i].indexOf("#");
@@ -27,11 +28,12 @@ export async function collectLinkedPullRequests(context: Context, issue: IssuePa
       } else {
         const url = linkedPrUrls[i].match(/https.+/)?.[0];
         if (url) {
-          const linkedRepo = parseGitHubUrl(url);
+          const linkedRepo = parseIssueUrl(url);
           isClosingPr = linkedRepo.issue_number === issue.issue_number && linkedRepo.repo === issue.repo && linkedRepo.owner === issue.owner;
         }
       }
     }
+
     return isGitHubLinkEvent(event) && event.source.issue.pull_request?.merged_at === null && isClosingPr;
   });
 }
@@ -46,10 +48,8 @@ function eliminateDisconnects(issueLinkEvents: GitHubLinkEvent[]) {
   // Track connections and disconnections
   const connections = new Map<number, GitHubLinkEvent>(); // Use issue/pr number as key for easy access
   const disconnections = new Map<number, GitHubLinkEvent>(); // Track disconnections
-
   issueLinkEvents.forEach((issueEvent: GitHubLinkEvent) => {
     const issueNumber = issueEvent.source.issue.number as number;
-
     if (issueEvent.event === "connected" || issueEvent.event === "cross-referenced") {
       // Only add to connections if there is no corresponding disconnected event
       if (!disconnections.has(issueNumber)) {
