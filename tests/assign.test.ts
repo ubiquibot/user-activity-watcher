@@ -34,6 +34,12 @@ describe("watchUserActivity", () => {
     commentHandler: {
       postComment: mock(() => {}),
     },
+    adapters: {
+      issueStore: {
+        addIssue: mock(() => {}),
+        removeIssue: mock(() => {}),
+      },
+    },
   } as unknown as ContextPlugin;
 
   beforeEach(() => {
@@ -67,5 +73,42 @@ describe("watchUserActivity", () => {
     const infoSpy = spyOn(console, "info");
     await watchUserActivity(mockContextTemplate);
     expect(infoSpy).not.toHaveBeenCalled();
+  });
+
+  it("should not post reminders for reopened tasks without assignees", async () => {
+    const postComment = mock(() => {});
+    const addIssue = mock(() => {});
+    const removeIssue = mock(() => {});
+    const mockContext = {
+      ...mockContextTemplate,
+      eventName: "issues.reopened",
+      payload: {
+        ...mockContextTemplate.payload,
+        issue: {
+          assignees: [],
+          assignee: null,
+          html_url: "https://github.com/ubiquity-os/test-repo/issues/1",
+          title: "Test Issue",
+          state: "open",
+          labels: ["Price: 75 USD"],
+        },
+      },
+      commentHandler: {
+        postComment,
+      },
+      adapters: {
+        issueStore: {
+          addIssue,
+          removeIssue,
+        },
+      },
+    } as unknown as ContextPlugin;
+
+    const result = await watchUserActivity(mockContext);
+
+    expect(result.message).toBe("OK");
+    expect(postComment).not.toHaveBeenCalled();
+    expect(addIssue).not.toHaveBeenCalled();
+    expect(removeIssue).toHaveBeenCalledWith("https://github.com/ubiquity-os/test-repo/issues/1");
   });
 });
