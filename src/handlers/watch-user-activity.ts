@@ -10,12 +10,9 @@ type IssueType = RestEndpointMethodTypes["issues"]["listForRepo"]["response"]["d
 
 export async function watchUserActivity(context: ContextPlugin) {
   const { logger } = context;
+  const issue = "issue" in context.payload ? (context.payload.issue as IssueType) : null;
 
-  if (
-    ["issues.assigned", "issues.reopened"].includes(context.eventName) &&
-    "issue" in context.payload &&
-    !shouldIgnoreIssue(context.payload.issue as IssueType)
-  ) {
+  if (["issues.assigned", "issues.reopened"].includes(context.eventName) && issue && !shouldIgnoreIssue(issue) && hasAssignee(issue)) {
     const message = ["[!IMPORTANT]"];
     const priorityValue = getPriorityValue(context);
     if (context.config.pullRequestRequired) {
@@ -31,7 +28,7 @@ export async function watchUserActivity(context: ContextPlugin) {
     log.logMessage.diff = log.logMessage.raw;
     const commentData = await context.commentHandler.postComment(context, log);
     if (commentData) {
-      await context.adapters.issueStore.addIssue(context.payload.issue.html_url);
+      await context.adapters.issueStore.addIssue(issue.html_url);
     }
     await updateCronState(context);
     // We return early not to run the reminders section, which is handled by the CRON (avoids multiple reminders)
@@ -57,6 +54,10 @@ export async function runRemindersForRepository(context: ContextPlugin, repo: Co
  */
 function shouldIgnoreIssue(issue: IssueType) {
   return issue.draft || !!issue.pull_request || issue.locked || issue.state !== "open" || parsePriceLabel(issue.labels) === null;
+}
+
+function hasAssignee(issue: IssueType) {
+  return !!(issue.assignee || issue.assignees?.length);
 }
 
 async function updateReminders(context: ContextPlugin, repo: ContextPlugin["payload"]["repository"]) {
