@@ -68,4 +68,52 @@ describe("watchUserActivity", () => {
     await watchUserActivity(mockContextTemplate);
     expect(infoSpy).not.toHaveBeenCalled();
   });
+
+  it("should not post reminder on reopened issue when no assignee", async () => {
+    const postCommentMock = mock(() => {});
+    const mockContext = {
+      ...mockContextTemplate,
+      eventName: "issues.reopened",
+      payload: {
+        ...mockContextTemplate.payload,
+        issue: {
+          assignees: [],
+          assignee: null,
+          title: "Unassigned Issue",
+          state: "open",
+          labels: [{ name: "Price: 50 USD" }],
+          html_url: "https://github.com/test/repo/issues/1",
+        },
+      },
+      commentHandler: { postComment: postCommentMock },
+    } as unknown as ContextPlugin;
+
+    const result = await watchUserActivity(mockContext);
+
+    expect(result.message).toContain("no assignee on reopened issue");
+    expect(postCommentMock).not.toHaveBeenCalled();
+  });
+
+  it("should post reminder on reopened issue when assignee is present", async () => {
+    const warnSpy = spyOn(console, "warn");
+    const mockContext = {
+      ...mockContextTemplate,
+      eventName: "issues.reopened",
+      payload: {
+        ...mockContextTemplate.payload,
+        issue: {
+          assignees: [{ login: "contributor" }],
+          assignee: { login: "contributor" },
+          title: "Assigned Issue",
+          state: "open",
+          labels: [{ name: "Price: 50 USD" }],
+          html_url: "https://github.com/test/repo/issues/2",
+        },
+      },
+    } as unknown as ContextPlugin;
+
+    await watchUserActivity(mockContext);
+
+    expect(warnSpy).toHaveBeenCalled();
+  });
 });
