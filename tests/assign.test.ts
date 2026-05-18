@@ -34,6 +34,13 @@ describe("watchUserActivity", () => {
     commentHandler: {
       postComment: mock(() => {}),
     },
+    adapters: {
+      issueStore: {
+        addIssue: mock(() => {}),
+        removeIssue: mock(() => {}),
+        hasData: mock(() => false),
+      },
+    },
   } as unknown as ContextPlugin;
 
   beforeEach(() => {
@@ -67,5 +74,40 @@ describe("watchUserActivity", () => {
     const infoSpy = spyOn(console, "info");
     await watchUserActivity(mockContextTemplate);
     expect(infoSpy).not.toHaveBeenCalled();
+  });
+
+  it("should not post a reminder when a priced issue is reopened without assignees", async () => {
+    const postComment = mock(() => {});
+    const removeIssue = mock(() => {});
+    const mockContext = {
+      ...mockContextTemplate,
+      eventName: "issues.reopened",
+      payload: {
+        ...mockContextTemplate.payload,
+        issue: {
+          assignees: [],
+          assignee: null,
+          html_url: "https://github.com/ubiquity-os-marketplace/daemon-disqualifier/issues/135",
+          title: "Test Issue",
+          state: "open",
+          labels: ["Price: 75 USD"],
+        },
+      },
+      commentHandler: {
+        postComment,
+      },
+      adapters: {
+        issueStore: {
+          addIssue: mock(() => {}),
+          removeIssue,
+          hasData: mock(() => false),
+        },
+      },
+    } as unknown as ContextPlugin;
+
+    await watchUserActivity(mockContext);
+
+    expect(postComment).not.toHaveBeenCalled();
+    expect(removeIssue).toHaveBeenCalledWith("https://github.com/ubiquity-os-marketplace/daemon-disqualifier/issues/135");
   });
 });
