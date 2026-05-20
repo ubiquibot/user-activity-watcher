@@ -68,4 +68,24 @@ describe("watchUserActivity", () => {
     await watchUserActivity(mockContextTemplate);
     expect(infoSpy).not.toHaveBeenCalled();
   });
+
+  it("should not post a reminder when a task is reopened without an assignee", async () => {
+    const mockContext = { ...mockContextTemplate };
+    mockContext.eventName = "issues.reopened";
+    mockContext.payload = {
+      ...mockContextTemplate.payload,
+      issue: {
+        assignees: [],
+        assignee: null,
+        html_url: "https://github.com/ubiquity-os-marketplace/daemon-disqualifier/issues/135",
+        title: "Test Issue",
+        state: "open",
+        labels: ["Price: 75 USD"],
+      },
+    } as unknown as ContextPlugin["payload"];
+
+    await watchUserActivity(mockContext);
+
+    expect(mockContext.commentHandler.postComment).not.toHaveBeenCalled();
+  });
 });
