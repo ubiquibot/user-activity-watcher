@@ -16,6 +16,14 @@ export async function watchUserActivity(context: ContextPlugin) {
     "issue" in context.payload &&
     !shouldIgnoreIssue(context.payload.issue as IssueType)
   ) {
+    const issue = context.payload.issue as IssueType;
+    if (context.eventName === "issues.reopened" && !hasIssueAssignees(issue)) {
+      logger.debug(`Skipping reopened issue ${issue.html_url} because no user is assigned.`);
+      await removeEntryFromDatabase(context, issue);
+      await updateCronState(context);
+      return { message: "OK" };
+    }
+
     const message = ["[!IMPORTANT]"];
     const priorityValue = getPriorityValue(context);
     if (context.config.pullRequestRequired) {
@@ -57,6 +65,10 @@ export async function runRemindersForRepository(context: ContextPlugin, repo: Co
  */
 function shouldIgnoreIssue(issue: IssueType) {
   return issue.draft || !!issue.pull_request || issue.locked || issue.state !== "open" || parsePriceLabel(issue.labels) === null;
+}
+
+function hasIssueAssignees(issue: IssueType) {
+  return !!(issue.assignee || issue.assignees?.length);
 }
 
 async function updateReminders(context: ContextPlugin, repo: ContextPlugin["payload"]["repository"]) {

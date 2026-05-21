@@ -63,6 +63,37 @@ describe("watchUserActivity", () => {
     expect(warnSpy).toHaveBeenCalled();
   });
 
+  it("should skip reopened issues with no assignees", async () => {
+    const debugSpy = spyOn(mockContextTemplate.logger, "debug");
+    const mockContext = {
+      ...mockContextTemplate,
+      eventName: "issues.reopened",
+      payload: {
+        ...mockContextTemplate.payload,
+        issue: {
+          assignee: null,
+          assignees: [],
+          html_url: "https://github.com/ubiquity-os/test/issues/1",
+          labels: ["Price: 1 USD"],
+          state: "open",
+          title: "Test Issue",
+        },
+      },
+      adapters: {
+        issueStore: {
+          removeIssue: mock(() => Promise.resolve()),
+          hasData: mock(() => Promise.resolve(false)),
+        },
+      },
+    } as unknown as ContextPlugin;
+
+    await expect(watchUserActivity(mockContext)).resolves.toEqual({ message: "OK" });
+
+    expect(mockContext.commentHandler.postComment).not.toHaveBeenCalled();
+    expect(mockContext.adapters.issueStore.removeIssue).toHaveBeenCalledWith("https://github.com/ubiquity-os/test/issues/1");
+    expect(debugSpy).toHaveBeenCalledWith("Skipping reopened issue https://github.com/ubiquity-os/test/issues/1 because no user is assigned.");
+  });
+
   it("should ignore an un-priced task", async () => {
     const infoSpy = spyOn(console, "info");
     await watchUserActivity(mockContextTemplate);
