@@ -16,6 +16,13 @@ export async function watchUserActivity(context: ContextPlugin) {
     "issue" in context.payload &&
     !shouldIgnoreIssue(context.payload.issue as IssueType)
   ) {
+    // Fix: Don't post reminders on reopened if there is no assignee
+    if (context.eventName === "issues.reopened") {
+      const issue = context.payload.issue as IssueType;
+      if (!issue.assignees || issue.assignees.length === 0) {
+        return { message: logger.debug("Skipping reminder on reopened issue with no assignee.").logMessage.raw };
+      }
+    }
     const message = ["[!IMPORTANT]"];
     const priorityValue = getPriorityValue(context);
     if (context.config.pullRequestRequired) {
