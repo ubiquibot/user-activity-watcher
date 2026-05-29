@@ -68,4 +68,39 @@ describe("watchUserActivity", () => {
     await watchUserActivity(mockContextTemplate);
     expect(infoSpy).not.toHaveBeenCalled();
   });
+
+  it("should not post a reminder when a task is reopened without assignees", async () => {
+    const postComment = mock(() => undefined);
+    const addIssue = mock(() => undefined);
+    const removeIssue = mock(() => undefined);
+    const mockContext = {
+      ...mockContextTemplate,
+      eventName: "issues.reopened",
+      payload: {
+        ...mockContextTemplate.payload,
+        issue: {
+          assignees: [],
+          assignee: null,
+          html_url: "https://github.com/ubiquity-os/daemon-disqualifier/issues/1",
+          title: "Test Issue",
+          state: "open",
+          labels: ["Price: 1 USD"],
+        },
+      },
+      commentHandler: {
+        postComment,
+      },
+      adapters: {
+        issueStore: {
+          addIssue,
+          removeIssue,
+        },
+      },
+    } as unknown as ContextPlugin;
+
+    await expect(watchUserActivity(mockContext)).resolves.toEqual({ message: "OK" });
+    expect(postComment).not.toHaveBeenCalled();
+    expect(addIssue).not.toHaveBeenCalled();
+    expect(removeIssue).toHaveBeenCalledWith("https://github.com/ubiquity-os/daemon-disqualifier/issues/1");
+  });
 });
