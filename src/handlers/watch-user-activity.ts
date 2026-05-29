@@ -16,6 +16,11 @@ export async function watchUserActivity(context: ContextPlugin) {
     "issue" in context.payload &&
     !shouldIgnoreIssue(context.payload.issue as IssueType)
   ) {
+    const issue = context.payload.issue as IssueType;
+    if (context.eventName === "issues.reopened" && !issue.assignee && !issue.assignees?.length) {
+      logger.info(`Skipping issue reopened comment for ${issue.html_url} because there is no assignee.`);
+      return { message: "OK" };
+    }
     const message = ["[!IMPORTANT]"];
     const priorityValue = getPriorityValue(context);
     if (context.config.pullRequestRequired) {
