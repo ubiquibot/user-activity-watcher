@@ -16,6 +16,11 @@ export async function watchUserActivity(context: ContextPlugin) {
     "issue" in context.payload &&
     !shouldIgnoreIssue(context.payload.issue as IssueType)
   ) {
+    if (!hasIssueAssignee(context.payload.issue as IssueType)) {
+      logger.debug(`Skipping issue ${context.payload.issue.html_url} because no user is assigned.`);
+      return { message: "OK" };
+    }
+
     const message = ["[!IMPORTANT]"];
     const priorityValue = getPriorityValue(context);
     if (context.config.pullRequestRequired) {
@@ -59,6 +64,10 @@ function shouldIgnoreIssue(issue: IssueType) {
   return issue.draft || !!issue.pull_request || issue.locked || issue.state !== "open" || parsePriceLabel(issue.labels) === null;
 }
 
+function hasIssueAssignee(issue: IssueType) {
+  return !!(issue.assignees?.length || issue.assignee);
+}
+
 async function updateReminders(context: ContextPlugin, repo: ContextPlugin["payload"]["repository"]) {
   const { logger, octokit, payload } = context;
   const owner = payload.repository.owner?.login;
@@ -86,7 +95,7 @@ async function updateReminders(context: ContextPlugin, repo: ContextPlugin["payl
       continue;
     }
 
-    if (issue.assignees?.length || issue.assignee) {
+    if (hasIssueAssignee(issue)) {
       logger.info(`Checking assigned issue: ${issue.html_url}`);
       await updateTaskReminder(context, repo, issue);
     } else {
