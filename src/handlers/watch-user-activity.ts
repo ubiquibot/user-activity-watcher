@@ -11,11 +11,14 @@ type IssueType = RestEndpointMethodTypes["issues"]["listForRepo"]["response"]["d
 export async function watchUserActivity(context: ContextPlugin) {
   const { logger } = context;
 
-  if (
-    ["issues.assigned", "issues.reopened"].includes(context.eventName) &&
-    "issue" in context.payload &&
-    !shouldIgnoreIssue(context.payload.issue as IssueType)
-  ) {
+  if (["issues.assigned", "issues.reopened"].includes(context.eventName) && "issue" in context.payload) {
+    const issue = context.payload.issue as IssueType;
+    if (shouldIgnoreIssue(issue)) {
+      return { message: logger.warn(`Unsupported event ${context.eventName}`).logMessage.raw };
+    }
+    if (!hasAssignees(issue)) {
+      return { message: logger.debug(`Skipping issue ${issue.html_url} because no user is assigned.`).logMessage.raw };
+    }
     const message = ["[!IMPORTANT]"];
     const priorityValue = getPriorityValue(context);
     if (context.config.pullRequestRequired) {
@@ -57,6 +60,10 @@ export async function runRemindersForRepository(context: ContextPlugin, repo: Co
  */
 function shouldIgnoreIssue(issue: IssueType) {
   return issue.draft || !!issue.pull_request || issue.locked || issue.state !== "open" || parsePriceLabel(issue.labels) === null;
+}
+
+function hasAssignees(issue: IssueType) {
+  return !!(issue.assignees?.length || issue.assignee);
 }
 
 async function updateReminders(context: ContextPlugin, repo: ContextPlugin["payload"]["repository"]) {

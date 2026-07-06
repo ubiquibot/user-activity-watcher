@@ -68,4 +68,30 @@ describe("watchUserActivity", () => {
     await watchUserActivity(mockContextTemplate);
     expect(infoSpy).not.toHaveBeenCalled();
   });
+
+  it("should skip reopened priced issues without assignees", async () => {
+    const mockContext = {
+      ...mockContextTemplate,
+      eventName: "issues.reopened",
+      payload: {
+        ...mockContextTemplate.payload,
+        issue: {
+          assignee: null,
+          assignees: [],
+          html_url: "https://github.com/ubiquity-os/test-repo/issues/1",
+          labels: ["Price: 1 USD"],
+          locked: false,
+          state: "open",
+          title: "Test Issue",
+        },
+      },
+      commentHandler: {
+        postComment: mock(() => {}),
+      },
+    } as unknown as ContextPlugin;
+
+    await watchUserActivity(mockContext);
+
+    expect(mockContext.commentHandler.postComment).not.toHaveBeenCalled();
+  });
 });
