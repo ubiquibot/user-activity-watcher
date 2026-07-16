@@ -16,6 +16,15 @@ export async function watchUserActivity(context: ContextPlugin) {
     "issue" in context.payload &&
     !shouldIgnoreIssue(context.payload.issue as IssueType)
   ) {
+    const issue = context.payload.issue as IssueType;
+    const hasAssignees = !!(issue.assignee || issue.assignees?.length);
+    if (context.eventName === "issues.reopened" && !hasAssignees) {
+      logger.debug(`Skipping reopened issue ${issue.html_url} because no user is assigned.`);
+      await removeEntryFromDatabase(context, issue);
+      await updateCronState(context);
+      return { message: "OK" };
+    }
+
     const message = ["[!IMPORTANT]"];
     const priorityValue = getPriorityValue(context);
     if (context.config.pullRequestRequired) {

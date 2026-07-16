@@ -63,6 +63,33 @@ describe("watchUserActivity", () => {
     expect(warnSpy).toHaveBeenCalled();
   });
 
+  it("should not post reminders for reopened issues without assignees", async () => {
+    const mockContext = {
+      ...mockContextTemplate,
+      eventName: "issues.reopened",
+      payload: {
+        ...mockContextTemplate.payload,
+        issue: {
+          assignees: [],
+          assignee: null,
+          title: "Test Issue",
+          state: "open",
+          labels: ["Price: 1 USD"],
+          html_url: "https://github.com/owner/repo/issues/1",
+        },
+      },
+      adapters: {
+        issueStore: {
+          removeIssue: mock(() => {}),
+        },
+      },
+    } as unknown as ContextPlugin;
+
+    await watchUserActivity(mockContext);
+
+    expect(mockContext.commentHandler.postComment).not.toHaveBeenCalled();
+  });
+
   it("should ignore an un-priced task", async () => {
     const infoSpy = spyOn(console, "info");
     await watchUserActivity(mockContextTemplate);
