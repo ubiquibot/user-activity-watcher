@@ -68,4 +68,26 @@ describe("watchUserActivity", () => {
     await watchUserActivity(mockContextTemplate);
     expect(infoSpy).not.toHaveBeenCalled();
   });
+
+  it("should not post a reminder when a reopened issue has no assignee", async () => {
+    const postComment = mock(() => {});
+    const mockContext = {
+      ...mockContextTemplate,
+      eventName: "issues.reopened",
+      payload: {
+        ...mockContextTemplate.payload,
+        issue: {
+          assignees: [],
+          title: "Reopened issue without an assignee",
+          state: "open",
+          labels: ["Price: 75 USD"],
+        },
+      },
+      commentHandler: { postComment },
+    } as unknown as ContextPlugin;
+
+    await watchUserActivity(mockContext);
+
+    expect(postComment).not.toHaveBeenCalled();
+  });
 });

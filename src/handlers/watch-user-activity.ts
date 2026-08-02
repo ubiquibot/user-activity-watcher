@@ -10,11 +10,13 @@ type IssueType = RestEndpointMethodTypes["issues"]["listForRepo"]["response"]["d
 
 export async function watchUserActivity(context: ContextPlugin) {
   const { logger } = context;
+  const issue = "issue" in context.payload ? (context.payload.issue as IssueType) : null;
 
   if (
     ["issues.assigned", "issues.reopened"].includes(context.eventName) &&
-    "issue" in context.payload &&
-    !shouldIgnoreIssue(context.payload.issue as IssueType)
+    issue &&
+    !shouldIgnoreIssue(issue) &&
+    (context.eventName !== "issues.reopened" || hasAssignee(issue))
   ) {
     const message = ["[!IMPORTANT]"];
     const priorityValue = getPriorityValue(context);
@@ -38,6 +40,10 @@ export async function watchUserActivity(context: ContextPlugin) {
     return { message: "OK" };
   }
   return { message: logger.warn(`Unsupported event ${context.eventName}`).logMessage.raw };
+}
+
+function hasAssignee(issue: IssueType) {
+  return Boolean(issue.assignees?.length || issue.assignee);
 }
 
 export async function runRemindersForRepository(context: ContextPlugin, repo: ContextPlugin["payload"]["repository"]) {
