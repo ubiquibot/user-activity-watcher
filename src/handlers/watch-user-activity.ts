@@ -16,6 +16,14 @@ export async function watchUserActivity(context: ContextPlugin) {
     "issue" in context.payload &&
     !shouldIgnoreIssue(context.payload.issue as IssueType)
   ) {
+    const issue = context.payload.issue as IssueType;
+    if (!issue.assignees?.length && !issue.assignee) {
+      logger.debug(`Skipping issue ${issue.html_url} because no user is assigned.`);
+      await removeEntryFromDatabase(context, issue);
+      await updateCronState(context);
+      return { message: "OK" };
+    }
+
     const message = ["[!IMPORTANT]"];
     const priorityValue = getPriorityValue(context);
     if (context.config.pullRequestRequired) {
@@ -31,7 +39,7 @@ export async function watchUserActivity(context: ContextPlugin) {
     log.logMessage.diff = log.logMessage.raw;
     const commentData = await context.commentHandler.postComment(context, log);
     if (commentData) {
-      await context.adapters.issueStore.addIssue(context.payload.issue.html_url);
+      await context.adapters.issueStore.addIssue(issue.html_url);
     }
     await updateCronState(context);
     // We return early not to run the reminders section, which is handled by the CRON (avoids multiple reminders)

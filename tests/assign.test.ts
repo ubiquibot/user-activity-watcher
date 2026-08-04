@@ -4,6 +4,9 @@ import { watchUserActivity } from "../src/handlers/watch-user-activity";
 import { ContextPlugin } from "../src/types/plugin-input";
 
 describe("watchUserActivity", () => {
+  const addIssue = mock(() => Promise.resolve());
+  const removeIssue = mock(() => Promise.resolve());
+
   const mockContextTemplate = {
     logger: new Logs("debug"),
     eventName: "issues.assigned",
@@ -33,6 +36,12 @@ describe("watchUserActivity", () => {
     },
     commentHandler: {
       postComment: mock(() => {}),
+    },
+    adapters: {
+      issueStore: {
+        addIssue,
+        removeIssue,
+      },
     },
   } as unknown as ContextPlugin;
 
@@ -67,5 +76,31 @@ describe("watchUserActivity", () => {
     const infoSpy = spyOn(console, "info");
     await watchUserActivity(mockContextTemplate);
     expect(infoSpy).not.toHaveBeenCalled();
+  });
+
+  it("should not post a reminder when a reopened issue has no assignee", async () => {
+    const postComment = mock(() => Promise.resolve());
+    const mockContext = {
+      ...mockContextTemplate,
+      eventName: "issues.reopened",
+      payload: {
+        ...mockContextTemplate.payload,
+        issue: {
+          assignee: null,
+          assignees: [],
+          html_url: "https://github.com/ubiquity-os-marketplace/daemon-disqualifier/issues/135",
+          labels: ["Price: 75 USD"],
+          state: "open",
+          title: "Test Issue",
+        },
+      },
+      commentHandler: { postComment },
+    } as unknown as ContextPlugin;
+
+    await watchUserActivity(mockContext);
+
+    expect(postComment).not.toHaveBeenCalled();
+    expect(addIssue).not.toHaveBeenCalled();
+    expect(removeIssue).toHaveBeenCalledWith(mockContext.payload.issue.html_url);
   });
 });
