@@ -68,4 +68,56 @@ describe("watchUserActivity", () => {
     await watchUserActivity(mockContextTemplate);
     expect(infoSpy).not.toHaveBeenCalled();
   });
+
+  it("should not post comment on issues.reopened when there is no assignee", async () => {
+    const postCommentMock = mock(() => {});
+    const mockContext = {
+      ...mockContextTemplate,
+      eventName: "issues.reopened",
+      commentHandler: {
+        postComment: postCommentMock,
+      },
+      payload: {
+        ...mockContextTemplate.payload,
+        issue: {
+          assignees: [],
+          assignee: null,
+          title: "Test Reopened Unassigned Issue",
+          state: "open",
+          labels: ["Price: 1 USD"],
+          html_url: "https://github.com/ubiquity-os/daemon-disqualifier/issues/135",
+        },
+      },
+    } as unknown as ContextPlugin;
+
+    const result = await watchUserActivity(mockContext);
+    expect(postCommentMock).not.toHaveBeenCalled();
+    expect(result.message).toContain("because no user is assigned");
+  });
+
+  it("should not post comment on issues.assigned when there is no assignee", async () => {
+    const postCommentMock = mock(() => {});
+    const mockContext = {
+      ...mockContextTemplate,
+      eventName: "issues.assigned",
+      commentHandler: {
+        postComment: postCommentMock,
+      },
+      payload: {
+        ...mockContextTemplate.payload,
+        issue: {
+          assignees: [],
+          assignee: null,
+          title: "Test Assigned Empty Issue",
+          state: "open",
+          labels: ["Price: 1 USD"],
+          html_url: "https://github.com/ubiquity-os/daemon-disqualifier/issues/135",
+        },
+      },
+    } as unknown as ContextPlugin;
+
+    const result = await watchUserActivity(mockContext);
+    expect(postCommentMock).not.toHaveBeenCalled();
+    expect(result.message).toContain("because no user is assigned");
+  });
 });
