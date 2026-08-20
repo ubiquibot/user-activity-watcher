@@ -16,6 +16,11 @@ export async function watchUserActivity(context: ContextPlugin) {
     "issue" in context.payload &&
     !shouldIgnoreIssue(context.payload.issue as IssueType)
   ) {
+    const issue = context.payload.issue as IssueType;
+    if (!issue.assignees?.length && !issue.assignee) {
+      return { message: logger.info(`Skipping issue ${issue.html_url || ""} because no user is assigned.`).logMessage.raw };
+    }
+
     const message = ["[!IMPORTANT]"];
     const priorityValue = getPriorityValue(context);
     if (context.config.pullRequestRequired) {
