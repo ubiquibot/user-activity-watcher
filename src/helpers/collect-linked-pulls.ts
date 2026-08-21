@@ -2,17 +2,20 @@ import { PullRequest, validate } from "@octokit/graphql-schema";
 import { ContextPlugin } from "../types/plugin-input";
 
 type ClosedByPullRequestsReferences = {
-  node: Pick<PullRequest, "url" | "title" | "number" | "state" | "body" | "id" | "reviewDecision"> & { author: { login: string; id: number } };
+	node: Pick<
+		PullRequest,
+		"url" | "title" | "number" | "state" | "body" | "id" | "reviewDecision"
+	> & { author: { login: string; id: number } };
 };
 
 type IssueWithClosedByPrs = {
-  repository: {
-    issue: {
-      closedByPullRequestsReferences: {
-        edges: ClosedByPullRequestsReferences[];
-      };
-    };
-  };
+	repository: {
+		issue: {
+			closedByPullRequestsReferences: {
+				edges: ClosedByPullRequestsReferences[];
+			};
+		};
+	};
 };
 
 const query = /* GraphQL */ `
@@ -50,25 +53,27 @@ const queryErrors = validate(query);
  * `closedByPullRequestsReferences` object in the schema as it is a recent addition to the GitHub API.
  */
 if (queryErrors.length > 1) {
-  throw new Error(`Invalid query: ${queryErrors.join(", ")}`);
+	throw new Error(`Invalid query: ${queryErrors.join(", ")}`);
 }
 
 export async function collectLinkedPullRequests(
-  context: ContextPlugin,
-  issue: {
-    owner: string;
-    repo: string;
-    issue_number: number;
-  },
-  includeClosedPrs = false
+	context: ContextPlugin,
+	issue: {
+		owner: string;
+		repo: string;
+		issue_number: number;
+	},
+	includeClosedPrs = false,
 ) {
-  const { owner, repo, issue_number } = issue;
-  const result = await context.octokit.graphql<IssueWithClosedByPrs>(query, {
-    owner,
-    repo,
-    issue_number,
-    includeClosedPrs,
-  });
+	const { owner, repo, issue_number } = issue;
+	const result = await context.octokit.graphql<IssueWithClosedByPrs>(query, {
+		owner,
+		repo,
+		issue_number,
+		includeClosedPrs,
+	});
 
-  return result.repository.issue.closedByPullRequestsReferences.edges.map((edge) => edge.node);
+	return result.repository.issue.closedByPullRequestsReferences.edges.map(
+		(edge) => edge.node,
+	);
 }
