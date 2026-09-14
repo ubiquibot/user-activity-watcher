@@ -68,4 +68,75 @@ describe("watchUserActivity", () => {
     await watchUserActivity(mockContextTemplate);
     expect(infoSpy).not.toHaveBeenCalled();
   });
+
+  it("should skip reminder and not post comment when an issue is reopened without assignees", async () => {
+    const postCommentMock = mock(() => Promise.resolve({}));
+    const removeIssueMock = mock(() => Promise.resolve());
+    const addIssueMock = mock(() => Promise.resolve());
+
+    const mockContext = {
+      ...mockContextTemplate,
+      eventName: "issues.reopened",
+      payload: {
+        ...mockContextTemplate.payload,
+        issue: {
+          html_url: "https://github.com/ubiquity-os/daemon-disqualifier/issues/135",
+          assignees: [],
+          assignee: null,
+          title: "Unassigned Issue",
+          state: "open",
+          labels: ["Price: 75 USD"],
+        },
+      },
+      commentHandler: {
+        postComment: postCommentMock,
+      },
+      adapters: {
+        issueStore: {
+          removeIssue: removeIssueMock,
+          addIssue: addIssueMock,
+        },
+      },
+    } as unknown as ContextPlugin;
+
+    const result = await watchUserActivity(mockContext);
+    expect(result).toEqual({ message: "OK" });
+    expect(postCommentMock).not.toHaveBeenCalled();
+    expect(addIssueMock).not.toHaveBeenCalled();
+    expect(removeIssueMock).toHaveBeenCalledWith("https://github.com/ubiquity-os/daemon-disqualifier/issues/135");
+  });
+
+  it("should post reminder when an issue is reopened with assignees", async () => {
+    const postCommentMock = mock(() => Promise.resolve({ id: 1 }));
+    const addIssueMock = mock(() => Promise.resolve());
+
+    const mockContext = {
+      ...mockContextTemplate,
+      eventName: "issues.reopened",
+      payload: {
+        ...mockContextTemplate.payload,
+        issue: {
+          html_url: "https://github.com/ubiquity-os/daemon-disqualifier/issues/135",
+          assignees: [{ login: "ubiquity-os" }],
+          assignee: { login: "ubiquity-os" },
+          title: "Assigned Issue",
+          state: "open",
+          labels: ["Price: 75 USD"],
+        },
+      },
+      commentHandler: {
+        postComment: postCommentMock,
+      },
+      adapters: {
+        issueStore: {
+          addIssue: addIssueMock,
+        },
+      },
+    } as unknown as ContextPlugin;
+
+    const result = await watchUserActivity(mockContext);
+    expect(result).toEqual({ message: "OK" });
+    expect(postCommentMock).toHaveBeenCalledTimes(1);
+    expect(addIssueMock).toHaveBeenCalledWith("https://github.com/ubiquity-os/daemon-disqualifier/issues/135");
+  });
 });
